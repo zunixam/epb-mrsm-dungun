@@ -157,3 +157,21 @@ Backend kini menambah kod peringkat yang tetap dalam respons 503 dan log `admin_
 Kod ini mengenal pasti peringkat, bukan membuktikan jadual hilang atau binding salah. Jangan cipta semula jadual, tukar database atau turunkan work factor berdasarkan andaian. Satu rekod `admin_users` sahaja tidak mengesahkan semua jadual, lajur dan binding deployment.
 
 Ujian router Pages yang dikompilasi membuktikan anonymous login, pemisahan API/SPA, sekatan admin dan login PBKDF2 dalam Worker tempatan. Ujian diagnostik menyuntik kegagalan D1/crypto dan memastikan hanya kod selamat didedahkan. Punca ralat deployment sebenar memerlukan kod rujukan selepas perubahan ini diluluskan untuk Preview, atau bukti Functions yang disanitasi daripada deployment semasa. Perubahan diagnostik ini sendiri tidak membaiki kegagalan login yang belum dikenal pasti.
+
+## Keserasian PBKDF2 pada hos Cloudflare
+
+Sumber rasmi workerd menetapkan had PBKDF2 lalai 100,000 iterasi melalui `IsolateLimitEnforcer::checkPbkdfIterations`; hos boleh mengubah had ini. Verifier projek menggunakan 600,000 iterasi. Oleh itu penerimaan 600,000 oleh Miniflare tempatan sahaja tidak membuktikan penerimaan hos Pages. Web Crypto dan `node:crypto` dalam workerd menggunakan semakan had yang sama:
+
+- [Had hos](https://github.com/cloudflare/workerd/blob/main/src/workerd/io/limit-enforcer.h)
+- [Pengesahan had dan NotSupportedError](https://github.com/cloudflare/workerd/blob/main/src/workerd/api/crypto/impl.c++)
+- [Node crypto menggunakan semakan yang sama](https://github.com/cloudflare/workerd/blob/main/src/workerd/api/node/crypto.c++)
+
+`AUTH_LOGIN_PASSWORD_VERIFY` mengecilkan lokasi kegagalan tetapi tidak mendedahkan jenis exception sebenar. Had hos ialah masalah keserasian yang disahkan pada sumber rasmi dan direproduksi dalam ujian had; ia belum membuktikan kandungan exception pada deployment pengguna.
+
+Pembetulan keserasian tempatan menggunakan laluan Web Crypto asal dahulu. **Hanya `NotSupportedError` daripada `deriveBits`** mencetuskan fallback `@noble/hashes` PBKDF2-HMAC-SHA256 async. Fallback mengekalkan 600,000 iterasi, salt 128 bit dan output 256 bit; ia bukan enam hash 100,000 iterasi dan tidak menukar algoritma atau data akaun. Error operasi lain kekal gagal tertutup. Tiada reset, penulisan semula hash atau migrasi D1 diperlukan.
+
+Format bootstrap dan server adalah sama: `pbkdf2-sha256$600000$<salt hex 32 aksara>$<derived key hex 64 aksara>`. Bootstrap mengimport modul yang sama. Parser kini menolak nilai bukan string, format tambahan dan parameter tidak kanonik tanpa exception. Verifier sah yang lama kekal diterima. Nilai malformed gagal login; ia tidak dibaiki atau dikemas kini secara automatik.
+
+Ujian membandingkan output dengan implementasi Node crypto bebas, menyimulasikan host menolak iterasi di atas 100,000 dalam Worker sebenar tempatan, dan menguji login/sesi penuh terhadap akaun sintetik dalam D1 sementara. Kata laluan salah ditolak dan verifier akaun tidak berubah. Tiada password/hash/token/cookie dicetak.
+
+**Batas operasi penting:** fallback JavaScript menggunakan lebih banyak CPU berbanding panggilan native. Miniflare tidak membuktikan pematuhan kuota CPU pelan Pages Functions/Workers percuma. Jangan anggap fallback ini sedia untuk hos percuma sehingga penggunaan CPU dan login Preview sebenar disahkan selepas semakan/kelulusan. Jika kuota tidak mencukupi, jangan turunkan iterasi atau menukar hash sedia ada secara senyap. Pilihan hos atau perubahan skim akaun memerlukan keputusan berasingan. Tiada perubahan Preview/production, akaun atau D1 remote dibuat semasa penyediaan patch ini.
