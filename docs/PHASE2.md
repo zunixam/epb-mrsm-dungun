@@ -1,120 +1,138 @@
-# e-PB Dungun Fasa 2 — D1, Pages Functions dan Cloudflare Access
+# e-PB Dungun Fasa 2 — Login pentadbir D1
 
-## Asas Git dan keselamatan production
+## Skop semasa dan keselamatan persekitaran
 
-Pada permulaan pembangunan, `git ls-remote --symref origin HEAD` mengesahkan branch lalai `main` pada `e805fc6`. Ia masih mengandungi HTML asal. Kod Fasa 1 terkini ialah `feat/epb-v1` pada `ae707b7`, yang sudah merangkumi `main`. Branch `feat/epb-admin-d1` dibina daripada kod Fasa 1 itu. Tiada merge ke main, deployment, penciptaan database remote atau migrasi production dijalankan.
+Branch pembangunan: `feat/epb-admin-login`, berasaskan `feat/epb-admin-d1` (`c3b8291`). Pengesahan Cloudflare Access/JWT telah diganti dengan akaun pentadbir dan sesi dalam D1. Tidak memerlukan Zero Trust Access, Supabase atau Firebase. Semua fungsi dashboard, jadual, pengumuman, audit, kalendar, countdown dan cetakan dikekalkan. HTML asal tidak diubah.
 
-`wrangler.jsonc` sengaja menggunakan ID database sifar dan nama tempatan. Ini bukan ID production. Jangan menggantikannya dengan ID production atau menjalankan arahan remote tanpa semakan dan kelulusan berasingan. Jangan aktifkan integrasi awam sebelum database dan API diuji dalam persekitaran bukan production.
+`wrangler.jsonc` kekal tanpa perubahan:
 
-## Jalankan secara tempatan
+| Persekitaran | Binding | Database | ID |
+| --- | --- | --- | --- |
+| Tempatan / top-level | DB | epb-dungun-local | 00000000-0000-0000-0000-000000000000 |
+| Preview sahaja | DB | epb-dungun-staging | 20235c71-0c91-428c-80a3-06eee3eab20e |
 
-Node.js 22.12+ dan npm diperlukan; diuji menggunakan Node.js 24.
+`PUBLIC_DATA_ENABLED=false` dalam kedua-dua konfigurasi. Staging tidak diwarisi oleh production. Tiada database production dikonfigurasi. Kerja ini tidak menjalankan migrasi remote, deployment, bootstrap akaun sebenar, push atau merge.
+
+## Persediaan dan ujian tempatan
+
+Node.js 24 disyorkan (digunakan dalam pengesahan). CLI bootstrap menggunakan sokongan TypeScript strip-types Node; tidak memerlukan transpiler atau menjalankan bundel frontend.
 
 ```sh
 npm ci
-npm run build
-npm run db:migrate:local
-npm run dev:pages -- --ip 127.0.0.1 --port 8788
-```
-
-Arahan migrasi menggunakan `--local` secara eksplisit. Ia tidak memerlukan akaun Cloudflare dan tidak mencipta database remote. Keadaan D1 tempatan disimpan dalam `.wrangler/` yang diabaikan Git. Ulang `npm run db:migrate:local` untuk mengesahkan tiada migrasi tertunggak.
-
-`npm run dev` hanya menjalankan frontend Vite. Ia tidak menjalankan Functions: portal menggunakan rujukan asal, dan admin tidak boleh mengakses API. Untuk aliran penuh gunakan `dev:pages` selepas build. Selepas mengubah frontend, bina semula `dist`.
-
-Untuk menguji API awam dengan **D1 tempatan sahaja**:
-
-```sh
-npm run dev:pages -- --ip 127.0.0.1 --port 8788 --binding PUBLIC_DATA_ENABLED=true
-```
-
-`GET /api/schedules` patut memulangkan lapan rekod seed; `GET /api/announcements` patut memulangkan senarai kosong. Tanpa konfigurasi Access, `/admin`, `/admin/*` dan semua `/api/admin/*` memulangkan 503. Dengan konfigurasi lengkap tetapi tanpa JWT, responsnya 401. Tiada bypass autentikasi tempatan dalam kod aplikasi.
-
-## Migrasi dan seed
-
-- `migrations/0001_initial.sql`: jadual `pb_schedules`, `announcements`, `audit_logs`; ID unik, timestamp UTC, versi rekod, constraint status/kategori/masa dan indeks bacaan awam, kategori serta sejarah.
-- `migrations/0002_seed_original.sql`: lapan rekod daripada `index (7).html`, dengan ID stabil `original-pb-01` hingga `original-pb-08`. `ON CONFLICT(id) DO NOTHING` memastikan seed berulang tidak menggandakan atau menimpa perubahan pentadbir.
-- Rekod asal diterbitkan dalam seed; ia masih tidak disajikan oleh API awam sehingga `PUBLIC_DATA_ENABLED=true` ditetapkan.
-- Pengumuman demo Fasa 1 **tidak** dimasukkan sebagai pengumuman rasmi.
-
-Untuk **database staging yang diluluskan dan sudah dicipta secara manual**, tambahkan binding D1 sebenar di konfigurasi `env.preview` dengan `binding: DB`, `database_name`, `database_id` staging dan `migrations_dir: migrations`. Semak nama/ID sasaran sebelum menjalankan secara manual:
-
-```sh
-# STAGING SAHAJA; tidak dijalankan semasa pembangunan ini.
-npx wrangler d1 migrations apply DB --env preview --remote
-```
-
-Jika Pages Dashboard digunakan untuk binding, pastikan konfigurasi Wrangler yang digunakan CLI mempunyai binding staging yang sama. Jangan gunakan placeholder tempatan untuk remote dan jangan bergantung pada pilihan persekitaran tersirat. Ambil backup dan semak migrasi dahulu sebelum sebarang kerja production yang diluluskan pada masa hadapan.
-
-## Cloudflare Access — konfigurasi manual wajib
-
-1. Dalam Zero Trust, cipta aplikasi **Self-hosted** untuk hostname portal staging. Lindungi **kedua-dua** path `/admin` (termasuk subpath) dan `/api/admin` (termasuk subpath). Gunakan aplikasi Access yang sama dengan audience yang sama untuk kedua-duanya, melalui konfigurasi beberapa public hostname/path. Jangan lindungi keseluruhan hostname sehingga portal awam memerlukan login.
-2. Tambahkan polisi Allow untuk identiti pentadbir yang ditetapkan dan penyedia identiti organisasi. Jangan gunakan polisi Bypass untuk laluan tersebut. Konfigurasi MFA/keperluan sesi mengikut polisi organisasi.
-3. Tetapkan runtime variables Pages Functions untuk persekitaran yang betul:
-
-| Nama | Nilai |
-| --- | --- |
-| `ACCESS_TEAM_DOMAIN` | `https://<team>.cloudflareaccess.com` tanpa trailing slash |
-| `ACCESS_AUD` | Application Audience (AUD) sebenar daripada aplikasi Access |
-| `ADMIN_EMAILS` | Senarai e-mel dibenarkan, dipisahkan koma; semakan tepat, tanpa wildcard |
-| `PUBLIC_DATA_ENABLED` | `false` dahulu; tukar kepada `true` hanya selepas pengesahan staging |
-| `DB` | Binding D1, bukan string variable, kepada database persekitaran yang betul |
-
-Tiada nilai ini menggunakan awalan `VITE_`; tiada token/secrets dimasukkan dalam bundle frontend. AUD/domain bukan kata laluan, tetapi tetap konfigurasi server. Tiada penyimpanan kata laluan sendiri. Untuk tempatan, `.dev.vars.example` boleh disalin ke `.dev.vars` yang diabaikan Git. Jangan commit nilai atau token sebenar.
-
-4. `server/auth.ts` mendapatkan JWKS daripada `${ACCESS_TEAM_DOMAIN}/cdn-cgi/access/certs` melalui HTTPS dan memverifikasi JWT `Cf-Access-Jwt-Assertion` menggunakan `jose`: signature RS256, issuer, audience, expiry serta tuntutan wajib `exp`, `iat`, `sub`, `email`. E-mel mesti tersenarai dalam `ADMIN_EMAILS`. Header e-mel identiti semata-mata tidak dipercayai. Kegagalan konfigurasi/JWKS/token tidak membuka akses.
-5. Uji akses anonymous, identiti di luar senarai, token expired dan login pentadbir sebenar di staging. Pastikan hostname custom **dan** URL preview/pages.dev tidak membuka admin. Server masih menolak akses tanpa JWT sah walaupun polisi edge tersalah konfigurasi. Routing Pages mesti menggunakan fail `_routes.json` yang dibekalkan.
-6. Operasi tulis memerlukan `Origin` sama dengan origin API dan `Content-Type: application/json`, selain JWT sah. Jangan tambah CORS permisif atau pengecualian CSRF. UI menggunakan cookie sesi Access melalui permintaan same-origin; ia tidak membaca atau menyimpan token.
-
-**Batas pengesahan:** ujian kriptografi menggunakan pasangan kunci RSA tempatan dan ujian API menggunakan runtime D1 tempatan. Login IdP sebenar, pengambilan JWKS organisasi, binding remote dan edge policies memerlukan konfigurasi manual dan belum disahkan dengan akaun Cloudflare sebenar.
-
-## API
-
-Semua respons API menggunakan `Cache-Control: no-store`. Endpoint awam hanya GET, dan hanya mengembalikan `published`. Tiada endpoint audit awam.
-
-| Endpoint | Kaedah / fungsi |
-| --- | --- |
-| `/api/schedules` | GET jadual diterbitkan; `year`, `month`, `q` |
-| `/api/announcements` | GET pengumuman diterbitkan; `q` |
-| `/api/admin/status` | GET status DB dan identiti disahkan |
-| `/api/admin/schedules` | GET semua status; `year`, `month`, `category`, `status`, `q`; POST tambah |
-| `/api/admin/schedules/:id` | PUT edit/status; pembatalan menggunakan `status: cancelled`, bukan DELETE |
-| `/api/admin/announcements` | GET semua status; `status`, `q`; POST tambah |
-| `/api/admin/announcements/:id` | PUT edit/status, DELETE padam |
-| `/api/admin/audit?page=0` | GET sejarah, 100 rekod setiap halaman |
-
-POST/PUT jadual menerima `title`, `start_date` dan `end_date` (`YYYY-MM-DD`), `departure_time` dan `return_time` (`HH:mm`, MYT), `category` (`PB Wajib`/`PB Pilihan`), `status` (`draft`/`published`/`cancelled`). Tarikh masuk mesti **selepas** tarikh keluar; tarikh sebenar dan masa divalidasi di server. Julat tahun disokong 2000–2100. Pengumuman menerima `title`, `body`, `status` (`draft`/`published`). Teks dipaparkan sebagai teks React, bukan HTML.
-
-PUT memerlukan keseluruhan rekod yang boleh diedit bersama `version` terkini; DELETE pengumuman memerlukan `{ "version": <versi> }`. Konflik versi memulangkan 409. Muat semula data sebelum mencuba semula; jangan timpa perubahan orang lain. ID dan timestamp ditentukan server. Semua nilai SQL dibind; nama jadual/lajur dipilih daripada senarai tetap. Had payload 32 KiB.
-
-Perubahan dan audit dilakukan melalui `DB.batch` atomik. Log mengandungi actor JWT disahkan, tindakan, ID entiti, masa UTC dan salinan sebelum/selepas. Audit untuk update/delete hanya dimasukkan jika versi rekod sepadan. UI meminta pengesahan sebelum simpan, terbit, nyahterbit, batal atau padam. Jadual dibatalkan kekal dalam database dan sejarah.
-
-## Integrasi portal dan pelan pengaktifan
-
-Frontend meminta kedua-dua API awam. Hanya apabila **kedua-dua** respons berjaya dan rekod lulus validasi diterbitkan, jadual dan pengumuman dimasukkan ke paparan. Jadual kosong yang sah dikekalkan kosong. Masa dinamik digunakan untuk countdown, bukannya pemetaan ID asal. Kalendar, carian, penapis dan cetakan menggunakan sumber rekod yang sama.
-
-Jika API belum diaktifkan, gagal atau mengandungi data tidak sah, portal mengekalkan rujukan asal Fasa 1 dan melabelkan sumber itu. Pengumuman demo kekal dilabel DEMO dan tidak menjadi pengumuman rasmi. Dalam mod D1 yang berjaya, demo diganti hanya dengan pengumuman diterbitkan (atau keadaan tiada pengumuman). Rujukan asal ketika kegagalan API ialah jadual sejarah 2026, **bukan jaminan salinan terkini database**.
-
-Sebelum pengaktifan manual: sediakan D1 staging, migrasi, semak lapan rekod, sahkan Access, uji CRUD/draf/audit pada staging, kemudian aktifkan `PUBLIC_DATA_ENABLED=true` dalam staging. Pengaktifan production memerlukan kelulusan berasingan; jangan sambungkan preview kepada database production. Tetapan `false` mengekalkan portal pada sumber asal dan menjadikan API awam 503. Fungsi Fasa 1 tidak dipadam.
-
-## Ujian
-
-```sh
 npm run typecheck
 npm run build
 npm test
 npm run test:e2e
 npm run db:migrate:local
+npm run dev:pages -- --ip 127.0.0.1 --port 8788 --local-protocol https
 ```
 
-- Vitest: 26 ujian, termasuk regresi Fasa 1, validasi pemetaan API, JWT kriptografi, akses anonymous, allowlist, CRUD D1 sebenar secara tempatan, idempotensi seed, konflik versi, audit, draf tersembunyi SQL injection, had payload dan rollback apabila audit gagal.
-- Playwright: 5 ujian; regresi jadual/carian/kalendar/countdown/cetakan, sumber D1 dinamik, UI admin ditolak jika API gagal, aliran editor dengan pengesahan dan lebar 375px. API admin dalam ujian UI dimock; keselamatan API diuji berasingan dengan JWT/D1.
-- Smoke test `wrangler pages dev`: portal 200; API awam tempatan 200 dengan lapan rekod/tiada pengumuman; `/admin`, subpath admin dan API admin 503 apabila konfigurasi Access tiada.
-- Migrasi tempatan berjaya. Seed dua kali tidak menggandakan lapan rekod. PDF regresi kekal satu halaman A4 landskap.
+`db:migrate:local` menggunakan `--local` secara eksplisit. Ia hanya menyediakan skema tempatan dalam `.wrangler/state/v3`; ia tidak mencipta akaun. HTTPS tempatan diperlukan untuk login dan cookie `Secure`. Ikuti persediaan sijil pembangunan yang dipercayai untuk pelayar anda; jangan matikan pengesahan TLS untuk staging/production. `npm run dev` ialah frontend sahaja dan tidak menjalankan Pages Functions; gunakan Pages dev untuk login sebenar. Bina semula selepas perubahan frontend.
 
-Wrangler tempatan mungkin memberi amaran bahawa `Request.cf` tidak dapat diambil melalui rangkaian; runtime menggunakan placeholder tempatan. Ini tidak menggantikan pengesahan staging sebenar.
+Ujian Vitest menggunakan D1 sementara Miniflare dan akaun sintetik yang dijana semasa ujian; ia bukan akaun pentadbir sebenar. Ujian UI login/logout menggunakan API mock; ujian API menggunakan D1 SQLite sebenar secara tempatan. Tiada kata laluan atau token ujian tetap dicommit.
 
-## Fail utama baharu / diubah
+## Migrasi tambahan
 
-Baharu: `src/Admin.tsx`, `src/shared.ts`, `src/publicData.ts`, `src/publicData.test.ts`, `server/auth.ts`, `server/auth.test.ts`, `server/validation.ts`, `server/api.ts`, `server/api.test.ts`, `functions/api/[[path]].ts`, `functions/admin/[[path]].ts`, `migrations/0001_initial.sql`, `migrations/0002_seed_original.sql`, `public/_routes.json`, `public/_headers`, `wrangler.jsonc`, `.dev.vars.example`, dokumen ini.
+- `0001_initial.sql`: jadual PB, pengumuman dan audit serta indeks.
+- `0002_seed_original.sql`: lapan rekod PB asal dengan ID stabil dan `ON CONFLICT(id) DO NOTHING`. Tidak menimpa suntingan rekod sedia ada. Demo pengumuman tidak dijadikan pengumuman rasmi.
+- `0003_admin_auth.sql`: tambahan `admin_users`, `admin_sessions`, `login_rate_limits` dan indeks. Tidak memadam, mengubah atau menggandakan lapan rekod asal. Tidak mencipta akaun atau kata laluan lalai.
 
-Diubah untuk integrasi: `src/main.tsx`, `src/schedule.ts`, `src/data.ts` (jenis ID/masa dinamik; lapan rekod asal kekal), `src/style.css`, `tests/app.spec.ts`, `package.json`, `package-lock.json`, `tsconfig.json`, `.gitignore`, `README.md`. HTML asal tidak diubah.
+**Arahan staging untuk pengendali selepas kelulusan berasingan; belum dijalankan dalam kerja ini:**
+
+```sh
+npx wrangler d1 info DB --env preview
+# Sahkan nama dan ID staging di atas sebelum meneruskan.
+npx wrangler d1 migrations apply DB --env preview --remote
+```
+
+Jangan gunakan database alternatif, jangan jalankan terhadap production dan jangan aktifkan API awam ketika menyediakan autentikasi. Migrasi remote memerlukan akses Cloudflare yang sah milik pengendali.
+
+## Bootstrap pentadbir pertama — manual dan interaktif sahaja
+
+Tiada endpoint pendaftaran, reset kata laluan terbuka, kata laluan lalai atau bypass login. Sediakan akaun hanya apabila pengendali diberi kelulusan untuk persekitaran sasaran. **CLI ini tidak dijalankan untuk mencipta akaun semasa pembangunan ini.**
+
+```sh
+# Tempatan sahaja, selepas migrasi tempatan dan kelulusan mencipta akaun:
+npm run admin:bootstrap -- --local
+
+# STAGING sahaja, selepas kelulusan akaun dan migrasi staging:
+npm run admin:bootstrap -- --staging
+```
+
+CLI memerlukan terminal TTY, memaparkan nama/ID sasaran dan meminta frasa pengesahan tepat `BOOTSTRAP <nama-database>`. Ia meminta e-mel dan kata laluan dua kali, dengan input kata laluan tersembunyi. Kata laluan mestilah 16–128 aksara (maksimum 512 bait UTF-8); gunakan frasa laluan unik yang dijana pengurus kata laluan. Jangan masukkan kata laluan dalam argumen shell, environment variable, fail, log atau Git.
+
+Untuk staging, pengendali menyediakan `CLOUDFLARE_ACCOUNT_ID` dan `CLOUDFLARE_API_TOKEN` secara selamat melalui pengurus rahsia/environment terminal. Token Cloudflare mestilah mempunyai akses D1 Edit pada akaun staging yang dimaksudkan; skrip hanya boleh menyasarkan ID staging yang dikunci di atas. Token ini **hanya untuk CLI operator**, bukan Pages runtime atau frontend. Jangan taip nilai token dalam chat atau commitnya. Skrip tidak mencetak token, kata laluan atau hash. Ia menggunakan Cloudflare D1 API dengan SQL berparameter; tempatan menggunakan binding D1 melalui Wrangler. Ia tidak mencipta database atau menjalankan migrasi.
+
+Penyisipan akaun menggunakan satu statement atomik `INSERT ... SELECT ... WHERE NOT EXISTS`, maka hanya akaun pertama boleh dibuat walaupun dua operator mencuba serentak. Jika mana-mana akaun sudah wujud (termasuk akaun dinyahaktifkan), bootstrap ditolak. Tiada kaedah menggunakan CLI ini untuk menambah akaun seterusnya atau mengganti kata laluan sedia ada. Trigger migrasi merekodkan audit `bootstrap` secara atomik bersama penyisipan akaun, menyimpan ID dan actor `operator-cli` tanpa hash/password. Jika audit gagal, penyisipan digulung balik. Jika rangkaian terputus ketika bootstrap, semak status melalui proses pentadbiran yang diluluskan sebelum mencuba semula; jangan padam akaun secara membuta tuli. Tindakan pengurusan akaun tambahan memerlukan proses operator yang disemak secara berasingan.
+
+Untuk menyahaktifkan akaun atau pemulihan: pengendali yang diberi kuasa perlu menjalankan operasi pentadbiran D1 yang disemak, menyahaktifkan akaun dan membatalkan sesi, dengan rekod audit tanpa rahsia. Tiada UI pemulihan kata laluan atau akaun tambahan dalam skop ini. Sandaran D1 mengandungi verifier kata laluan dan mesti dilindungi seperti data akses.
+
+## Model keselamatan login dan sesi
+
+- Password: PBKDF2-HMAC-SHA256, **600,000 iterasi**, salt rawak unik 128 bit dan output 256 bit. Format menyimpan algoritma/iterasi/salt/hash sahaja. Tiada plaintext, tiada password dalam audit. Sokongan WebCrypto parameter ini disahkan dalam runtime Cloudflare tempatan.
+- Cookie: `__Host-epb-session`, `HttpOnly; Secure; SameSite=Strict; Path=/`, tanpa `Domain`. Token sesi rawak 256 bit. D1 menyimpan **SHA-256 token sahaja**, bukan token yang boleh digunakan semula. Token tidak dipulangkan dalam body API, localStorage atau sessionStorage.
+- Sesi tamat selepas 8 jam mutlak atau 30 minit tanpa permintaan sesi/admin yang sah. Last-seen dikemas kini maksimum sekali seminit. Panel menyemak sesi berkala; server sentiasa menyemak expiry dan status aktif akaun pada setiap permintaan. Melawat tab yang terus membuat semakan sesi dianggap aktiviti.
+- Login baharu mengeluarkan token baharu dan membatalkan sesi lama daripada cookie pelayar itu; token yang dibekalkan tidak boleh menetapkan ID sesi. Logout sah memadam sesi di D1 dan mengosongkan cookie. Menyahaktifkan akaun menyebabkan semua sesinya ditolak walaupun cookie masih ada.
+- `/admin/login` ialah halaman awam. Halaman `/admin` dan subpath lain disahkan server; anonymous mendapat redirect ke login. `/api/admin/*` sentiasa disahkan server dan memberikan 401 jika tiada sesi. Kegagalan database/migrasi memberi 503, bukannya membuka akses. Header identiti/JWT Cloudflare lama tidak lagi memberi akses.
+- CSRF: setiap operasi tulis admin dan logout memerlukan Origin tepat sama, JSON dan header `X-CSRF-Token` yang terikat pada sesi. Nilai CSRF diterbitkan melalui SHA-256 dengan domain pemisah daripada token sesi berentropi tinggi; ia bukan token sesi dan disimpan frontend dalam memori sahaja. Login juga memerlukan Origin same-origin/JSON dan menolak cross-site. HTTPS diperlukan. Tiada CORS permisif.
+- Brute force: D1 menempah percubaan secara atomik **sebelum hashing**. Had window tetap 15 minit: 5 percubaan/akaun, 20/IP, 100 global. Had termasuk login berjaya supaya ia tidak boleh dielak dengan perlumbaan atau reset kaunter. Respons 429 mempunyai `Retry-After: 900`. Had global diperiksa dahulu untuk mengehadkan pertumbuhan bucket dan kerja hashing. IP hanya daripada `CF-Connecting-IP` yang ditetapkan Pages edge, bukan `X-Forwarded-For`. Di tempatan tanpa header edge, bucket `unknown` dikongsi.
+- Akaun tidak wujud, tidak aktif dan password salah menggunakan respons generik; akaun tidak wujud menggunakan dummy PBKDF2 verifier untuk mengurangkan perbezaan masa. Cubaan gagal diaudit secara anonim tanpa e-mel mentah, password atau token. Bucket disimpan sebagai hash; window lama dibersihkan.
+- Had ini melindungi brute force aplikasi, tetapi had akaun/global juga boleh menyebabkan penolakan sementara semasa serangan. Pantau 429 dan kuota D1; jangan melonggarkan perlindungan secara automatik. Sahkan CPU login dengan pelan Cloudflare percuma sebenar sebelum penggunaan; ujian tempatan bukan bukti kuota hos. Jangan turunkan work factor untuk menyembunyikan kegagalan kuota.
+- Semua operasi CRUD menggunakan SQL berparameter, validasi server, semakan versi untuk konflik dan audit atomik bersama mutasi. Teks dipaparkan sebagai teks React. Payload umum dihadkan 32 KiB dan login 2 KiB.
+
+## Endpoint
+
+| Endpoint | Fungsi |
+| --- | --- |
+| `POST /api/auth/login` | JSON `{email,password}`; sesi baharu jika sah |
+| `GET /api/auth/session` | Identiti, token CSRF dan waktu tamat; memerlukan cookie sah |
+| `POST /api/auth/logout` | Cookie + Origin + CSRF; memadam sesi |
+| `GET /api/admin/status` | Status D1, actor dan flag awam |
+| `/api/admin/schedules` | GET semua status; POST tambah |
+| `/api/admin/schedules/:id` | PUT edit/status; pembatalan melalui `cancelled`, bukan DELETE |
+| `/api/admin/announcements` | GET dan POST |
+| `/api/admin/announcements/:id` | PUT dan DELETE |
+| `GET /api/admin/audit?page=0` | Sejarah, 100 rekod/halaman |
+| `GET /api/schedules` | Hanya diterbitkan, jika flag awam aktif |
+| `GET /api/announcements` | Hanya diterbitkan, jika flag awam aktif |
+
+PUT memerlukan keseluruhan rekod boleh diedit dan `version` terkini; DELETE pengumuman memerlukan `version`. Konflik memberi 409. Jadual menerima `title`, `start_date`, `end_date`, `departure_time`, `return_time`, `category` dan `status`. Tarikh masuk mesti selepas tarikh keluar; kategori hanya PB Wajib/PB Pilihan; masa wajib `HH:mm` MYT. Status jadual: draft/published/cancelled. Pengumuman: title/body, draft/published. Carian dan penapis jadual: `q`, `year`, `month`, `category`, `status`. Endpoint awam mengabaikan permintaan status draf dan tidak pernah mengembalikan draf.
+
+Semua respons auth/API menggunakan `Cache-Control: no-store`; halaman admin turut `no-store` dan `noindex`. Fail `_routes.json` mesti dikekalkan supaya Pages Functions menjaga `/admin`, `/admin/*` dan `/api/*`.
+
+## Portal awam dan pengaktifan manual
+
+Flag awam kekal false; tiada data staging menggantikan data portal. Jika API dimatikan/gagal/tidak sah, rujukan asal Fasa 1 kekal dilabel sebagai sumber asal. Pengumuman demo kekal DEMO, bukan rasmi. Apabila pengaktifan diluluskan kelak, hanya setelah kedua-dua respons awam disahkan, data diterbitkan digunakan bersama oleh dashboard, kalendar, countdown, jadual dan cetakan. Respons kosong yang sah kekal kosong. Fallback asal ialah jadual sejarah 2026, bukan salinan terkini database.
+
+Konfigurasi manual yang masih diperlukan, **bukan dilakukan sekarang**:
+
+1. Semak dan luluskan kod/commit ini.
+2. Sediakan pengesahan HTTPS dan binding D1 Preview staging yang sedia ada; tiada database baharu diperlukan.
+3. Jalankan migrasi staging hanya selepas kelulusan remote yang baharu.
+4. Bootstrap akaun pertama hanya selepas kelulusan penciptaan akaun sebenar.
+5. Uji login/logout, cookie, timeout, 429, CSRF, CRUD dan audit pada staging sebenar, termasuk prestasi/kuota pelan percuma. Tiada maklumat pembayaran diperlukan oleh kod ini; kelayakan dan kuota akaun Cloudflare ditentukan perkhidmatan tersebut.
+6. Jika polisi Access lama pernah diaktifkan, semak dan buang perlindungan Access itu secara manual selepas pengesahan sistem baharu, supaya `/admin/login` boleh dicapai. Kod ini tidak lagi membaca `ACCESS_TEAM_DOMAIN`, `ACCESS_AUD`, `ADMIN_EMAILS`; variable lama boleh dibuang dari konfigurasi runtime melalui semakan manual. `.dev.vars.example` baharu hanya mengandungi flag awam false.
+7. Kekalkan `PUBLIC_DATA_ENABLED=false` sehingga keselamatan dan API disahkan serta pengaktifan diluluskan. Tiada deployment production atau sambungan database production termasuk dalam kerja ini.
+
+## Dependency dan keputusan pengesahan
+
+`npm audit` sebelum perubahan: 6 isu (2 critical, 3 high, 1 moderate), melibatkan `vitest`, `@vitest/mocker`, `tinypool`, `miniflare`, `sharp`, `undici`; semuanya rantaian alat pembangunan/ujian.
+
+Pembetulan dipilih secara khusus, bukan `npm audit fix --force`:
+
+- Vitest 3.2.7 → **5.1.0**, dengan mocker 5.1.0; dependency tinypool lama dibuang.
+- Miniflare 4 → **5.20261104.0-beta**, versi yang sama dengan dependency Wrangler 4.158.0 yang sudah digunakan. Ini ialah beta; versi eksplisit dikunci dalam package-lock dan adapter `convertV4MiniflareOptions` digunakan. API D1 diuji semula.
+- Resolusi transitif menggunakan sharp **0.35.5** dan undici **7.30.1**, yang melepasi julat advisory.
+- `jose` dibuang kerana JWT Access tidak lagi digunakan.
+
+Selepas perubahan, audit npm melaporkan **0 vulnerabilities** pada masa semakan. Ini keputusan registry semasa, bukan jaminan tiada advisory baharu pada masa depan.
+
+Pengesahan: TypeScript dan build lulus; 35 ujian Vitest lulus (regresi Fasa 1, data awam, CRUD D1, password, sesi, CSRF, cookie, expiry/idle, anonymous/spoofed identity, account disabled, rate limit IP/account/global dan serentak, bootstrap pertama); 7 ujian Playwright lulus termasuk login/logout dan paparan 375px. Bootstrap sebenar dan autentikasi hos staging tidak dijalankan. Migrasi tambahan diuji tempatan sahaja. PDF regresi kekal A4 landskap.
+
+## Fail baharu / diubah
+
+Baharu: `src/Login.tsx`, `server/password.ts`, `server/http.ts`, `server/bootstrap.ts`, `scripts/bootstrap-admin.mjs`, `migrations/0003_admin_auth.sql`.
+
+Diubah: `server/auth.ts`, `server/auth.test.ts`, `server/api.ts`, `server/api.test.ts`, `functions/admin/[[path]].ts`, `src/Admin.tsx`, `src/main.tsx`, `src/style.css`, `tests/app.spec.ts`, `.dev.vars.example`, `package.json`, `package-lock.json`, `README.md`, `docs/PHASE2.md`.
+
+Tidak diubah: konfigurasi staging `wrangler.jsonc`, migrasi/schema/seed Fasa 2 terdahulu, HTML asal dan lapan data PB asal.

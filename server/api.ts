@@ -1,11 +1,13 @@
 import type { D1Database } from '@cloudflare/workers-types';
-import { checkWriteOrigin, HttpError, verifyAdmin, type AccessConfig } from './auth';
+import { checkWriteOrigin, HttpError, verifyAdmin, handleAuth } from './auth';
+import { readJson } from './http';
 import { validateRecord } from './validation';
-export interface Env extends AccessConfig { DB:D1Database; PUBLIC_DATA_ENABLED?:string; ASSETS:{fetch(request:Request):Promise<Response>} }
+export interface Env { DB:D1Database; PUBLIC_DATA_ENABLED?:string; ASSETS:{fetch(request:Request):Promise<Response>} }
 export const json=(data:unknown,status=200)=>new Response(JSON.stringify(data),{status,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
 export function createHandler(auth=verifyAdmin){return async function(request:Request,env:Env):Promise<Response>{
  try{
  const url=new URL(request.url);const parts=url.pathname.replace(/\/$/,'').split('/').filter(Boolean);const admin=parts[1]==='admin';let actor='';
+ if(parts[1]==='auth'&&parts.length===3)return handleAuth(request,env,parts[2]);
  if(admin)actor=await auth(request,env);
  if(!admin&&env.PUBLIC_DATA_ENABLED!=='true')throw new HttpError(503,'API awam belum diaktifkan. Portal menggunakan jadual asal.');
  const resource=parts[admin?2:1];const id=parts[admin?3:2];if(parts.length>(admin?4:3))throw new HttpError(404,'Laluan tidak ditemui.');
@@ -27,9 +29,7 @@ export function createHandler(auth=verifyAdmin){return async function(request:Re
  if(!admin)throw new HttpError(405,'Endpoint awam baca sahaja.');
  if(!['POST','PUT','DELETE'].includes(request.method))throw new HttpError(405,'Kaedah tidak dibenarkan.');
  checkWriteOrigin(request);
- if(Number(request.headers.get('Content-Length'))>32768)throw new HttpError(413,'Permintaan terlalu besar.');
- const reader=request.body?.getReader();const chunks:Uint8Array[]=[];let size=0;if(reader){while(true){const {done,value}=await reader.read();if(done)break;size+=value.byteLength;if(size>32768){await reader.cancel();throw new HttpError(413,'Permintaan terlalu besar.')}chunks.push(value)}}const bytes=new Uint8Array(size);let offset=0;for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.byteLength}const raw=new TextDecoder().decode(bytes);let input:Record<string,unknown>;
- try{input=JSON.parse(raw);if(!input||Array.isArray(input)||typeof input!=='object')throw Error()}catch{throw new HttpError(400,'JSON tidak sah.')}
+ const input=await readJson(request);
  if(request.method==='POST'&&id||request.method!=='POST'&&!id)throw new HttpError(400,'ID rekod tidak sah.');
  if(request.method==='DELETE'&&resource==='schedules')throw new HttpError(405,'Jadual mesti dibatalkan untuk mengekalkan sejarah.');
  let before:Record<string,unknown>|null=null;if(id){before=await env.DB.prepare(`SELECT * FROM ${table} WHERE id = ?`).bind(id).first();if(!before)throw new HttpError(404,'Rekod tidak ditemui.');if(!Number.isInteger(input.version)||input.version!==before.version)throw new HttpError(409,'Rekod telah berubah. Muat semula sebelum menyimpan.')}

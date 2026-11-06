@@ -1,20 +1,21 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { Miniflare } from 'miniflare';
+import { unstable_splitSqlQuery } from 'wrangler';
+import { Miniflare, convertV4MiniflareOptions } from 'miniflare';
 import { createHandler, handleApi, type Env } from './api';
 import { validateRecord } from './validation';
 import { onRequest as adminPage } from '../functions/admin/[[path]]';
-const mf=new Miniflare({modules:true,script:'export default { fetch() { return new Response("test"); } }',d1Databases:['DB'],compatibilityDate:'2026-08-01'});
+const mf=new Miniflare(convertV4MiniflareOptions({modules:true,script:'export default { fetch() { return new Response("test"); } }',d1Databases:['DB'],compatibilityDate:'2026-08-01'}));
 let env:Env;
 const handler=createHandler(async()=> 'admin@example.com'); // Test injection only; deployed entry uses verifyAdmin.
 const valid={title:'PB ujian',start_date:'2027-02-10',end_date:'2027-02-12',departure_time:'14:30',return_time:'18:00',category:'PB Wajib',status:'draft'};
 function request(path:string,method='GET',body?:unknown,origin='https://portal.example'){return new Request(`https://portal.example/api/${path}`,{method,headers:{Origin:origin,'Content-Type':'application/json'},...(body!==undefined?{body:JSON.stringify(body)}:{})})}
 async function call(path:string,method='GET',body?:unknown){return handler(request(path,method,body),env)}
-beforeAll(async()=>{const DB=await mf.getD1Database('DB');env={DB:DB as unknown as Env['DB'],PUBLIC_DATA_ENABLED:'true',ASSETS:{fetch:async()=>new Response('shell')}};for(const file of ['0001_initial.sql','0002_seed_original.sql']){const sql=readFileSync(`migrations/${file}`,'utf8').replace(/^--.*$/gm,'');for(const statement of sql.split(';').filter(s=>s.trim()))await DB.prepare(statement).run()}},30000);
+beforeAll(async()=>{const DB=await mf.getD1Database('DB');env={DB:DB as unknown as Env['DB'],PUBLIC_DATA_ENABLED:'true',ASSETS:{fetch:async()=>new Response('shell')}};for(const file of ['0001_initial.sql','0002_seed_original.sql','0003_admin_auth.sql']){const sql=readFileSync(`migrations/${file}`,'utf8').replace(/^--.*$/gm,'');for(const statement of unstable_splitSqlQuery(sql))await DB.prepare(statement).run()}},30000);
 afterAll(async()=>{await mf.dispose()});
 describe('API dengan D1 SQLite tempatan',()=>{
  it('seed asal boleh diulang tanpa pendua atau mengubah data sedia ada',async()=>{const seed=readFileSync('migrations/0002_seed_original.sql','utf8').replace(/^--.*$/gm,'');for(const statement of seed.split(';').filter(s=>s.trim()))await env.DB.prepare(statement).run();const response=await call('schedules');expect((await response.json()).records).toHaveLength(8);expect((await (await call('announcements')).json()).records).toHaveLength(0)});
- it('menolak API pentadbir dan halaman tanpa konfigurasi atau login',async()=>{expect((await handleApi(request('admin/schedules'),env)).status).toBe(503);const configured={...env,ACCESS_TEAM_DOMAIN:'https://test.cloudflareaccess.com',ACCESS_AUD:'aud',ADMIN_EMAILS:'admin@example.com'};expect((await handleApi(request('admin/schedules'),configured)).status).toBe(401);const page=await (adminPage as Function)({request:new Request('https://portal.example/admin'),env:configured});expect(page.status).toBe(401);expect(await page.text()).not.toContain('<html')});
+ it('menolak API dan redirect halaman tanpa sesi',async()=>{expect((await handleApi(request('admin/schedules'),env)).status).toBe(401);const page=await (adminPage as Function)({request:new Request('https://portal.example/admin'),env});expect(page.status).toBe(303);expect(page.headers.get('Location')).toBe('/admin/login')});
  it('API awam baca sahaja dan dimatikan secara lalai',async()=>{expect((await handler(request('schedules'),{...env,PUBLIC_DATA_ENABLED:'false'})).status).toBe(503);expect((await call('schedules','POST',valid)).status).toBe(405);expect((await call('admin/status')).status).toBe(200)});
  it('validasi server menolak tarikh, masa, kategori dan status palsu',async()=>{for(const patch of [{end_date:valid.start_date},{end_date:'2027-02-09'},{start_date:'2027-02-30'},{departure_time:''},{return_time:'25:00'},{category:'Lain'},{status:'admin'},{title:''}])expect((await call('admin/schedules','POST',{...valid,...patch})).status).toBe(400);expect(()=>validateRecord('announcements',{title:'x',body:'',status:'published'})).toThrow();expect(()=>validateRecord('announcements',{title:'x',body:'y',status:'cancelled'})).toThrow()});
  it('menolak cross-origin dan body tidak sah',async()=>{expect((await handler(request('admin/schedules','POST',valid,'https://evil.example'),env)).status).toBe(403);const bad=new Request('https://portal.example/api/admin/schedules',{method:'POST',headers:{Origin:'https://portal.example','Content-Type':'application/json'},body:'not json'});expect((await handler(bad,env)).status).toBe(400)});

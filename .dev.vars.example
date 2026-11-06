@@ -1,5 +1,2 @@
-# Copy to ignored .dev.vars; use real Access configuration, never bypass authentication.
-ACCESS_TEAM_DOMAIN=https://your-team.cloudflareaccess.com
-ACCESS_AUD=your-access-application-audience
-ADMIN_EMAILS=admin@example.com
+# Optional local variables. Authentication uses the DB binding, not Cloudflare Access.
 PUBLIC_DATA_ENABLED=false

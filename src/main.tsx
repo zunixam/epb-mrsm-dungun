@@ -6,6 +6,7 @@ import './style.css';
 import { loadPublished } from './publicData';
 import type { AnnouncementRecord } from './shared';
 import { Admin } from './Admin';
+import { Login } from './Login';
 const months=['Januari','Februari','Mac','April','Mei','Jun','Julai','Ogos','September','Oktober','November','Disember'];
 function Badge({event}:{event:PBEvent}) {return <span className={`badge ${event.status==='PB Wajib'?'wajib':'pilihan'}`}>{event.status}</span>}
 function App(){
@@ -27,4 +28,4 @@ function App(){
  <section className="print-only"><h1>Jadual Pulang Bermalam {sessionYears}</h1><p>MRSM Dungun, Terengganu · Semua tarikh dan masa dalam waktu Malaysia</p><ScheduleTable list={records}/><p>PB Wajib: Semua pelajar dikehendaki mengosongkan asrama. PB Pilihan: Pelajar dibenarkan pulang atau kekal mengikut keperluan.</p><p>Sumber: {official===null?'Jadual asal PB 2026 MRSM Dungun.':'Jadual diterbitkan daripada database D1.'}</p></section><footer className="no-print">© 2026 MRSM Dungun <span>Rujukan pelajar & penjaga · Waktu Malaysia</span></footer></div></main></div></>
 }
 function ScheduleTable({list}:{list:PBEvent[]}){return <div className="table-wrap"><table><thead><tr><th>Bulan</th><th>Tarikh keluar</th><th>Tarikh masuk</th><th>Peristiwa / Cuti</th><th>Status</th></tr></thead><tbody>{list.map(e=><tr key={e.id}><td className="month-cell">{e.month}</td><td><strong>{formatDate(e.start)}</strong><small>{e.departure}</small></td><td><strong>{formatDate(e.end)}</strong><small>{e.returnTime}</small></td><td>{e.title}</td><td><Badge event={e}/></td></tr>)}</tbody></table>{!list.length&&<div className="empty-state"><h3>Tiada jadual ditemui</h3><p>Cuba kata carian lain atau set semula penapis.</p></div>}</div>}
-createRoot(document.getElementById('root')!).render(<React.StrictMode>{window.location.pathname==='/admin'||window.location.pathname.startsWith('/admin/')?<Admin/>:<App/>}</React.StrictMode>);
+createRoot(document.getElementById('root')!).render(<React.StrictMode>{window.location.pathname.replace(/\/$/,'')==='/admin/login'?<Login/>:window.location.pathname==='/admin'||window.location.pathname.startsWith('/admin/')?<Admin/>:<App/>}</React.StrictMode>);
