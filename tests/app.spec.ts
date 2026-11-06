@@ -15,3 +15,31 @@ test('UI admin responsif, pengesahan simpan dan editor jadual',async({page})=>{a
 
 test('login responsif memaparkan ralat generik dan rate limit tanpa pendaftaran',async({page})=>{await page.unroute('**/api/auth/session');await page.route('**/api/auth/session',route=>route.fulfill({status:401,json:{error:'Sesi tidak sah.'}}));await page.setViewportSize({width:375,height:812});let attempts=0;await page.route('**/api/auth/login',route=>{attempts++;return route.fulfill({status:attempts===1?401:429,json:{error:attempts===1?'E-mel atau kata laluan tidak sah.':'Terlalu banyak percubaan. Cuba semula selepas 15 minit.'}})});await page.goto('/admin/login');await expect(page.getByRole('heading',{name:'Selamat kembali'})).toBeVisible();await page.getByLabel('E-mel pentadbir').fill('synthetic@example.test');await page.getByLabel('Kata laluan',{exact:true}).fill(crypto.randomUUID());await page.getByRole('button',{name:'Log masuk →'}).click();await expect(page.getByRole('alert')).toContainText('E-mel atau kata laluan tidak sah');await expect(page.getByLabel('Kata laluan',{exact:true})).toHaveValue('');await page.getByLabel('Kata laluan',{exact:true}).fill(crypto.randomUUID());await page.getByRole('button',{name:'Log masuk →'}).click();await expect(page.getByRole('alert')).toContainText('Terlalu banyak percubaan');expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await expect(page.getByText('Tiada pendaftaran awam.',{exact:false})).toBeVisible()});
 test('sesi tamat redirect ke login dan logout meminta pengesahan',async({page})=>{let signedIn=true;await page.unroute('**/api/auth/session');await page.route('**/api/auth/session',route=>route.fulfill({status:signedIn?200:401,json:signedIn?{actor:'synthetic@example.test',csrfToken:crypto.randomUUID()}:{error:'Sesi tamat.'}}));await page.route('**/api/admin/**',route=>route.fulfill({json:route.request().url().endsWith('/status')?{connected:true,actor:'synthetic@example.test',publicDataEnabled:false}:{records:[]}}));await page.route('**/api/auth/logout',route=>{signedIn=false;return route.fulfill({json:{ok:true}})});await page.goto('/admin');await expect(page.getByText('✓ Database D1 disambungkan')).toBeVisible();page.once('dialog',d=>d.dismiss());await page.getByRole('button',{name:'Log keluar',exact:true}).click();await expect(page).toHaveURL(/\/admin$/);page.once('dialog',d=>d.accept());await page.getByRole('button',{name:'Log keluar',exact:true}).click();await expect(page).toHaveURL(/\/admin\/login$/);await expect(page.getByRole('heading',{name:'Selamat kembali'})).toBeVisible()});
+test('login kekal terbuka apabila semakan sesi awal 401 atau 503; ralat hanya daripada POST login',async({page})=>{
+ await page.unroute('**/api/auth/session');
+ let sessionStatus=401;let posts=0;
+ await page.route('**/api/auth/session',route=>route.fulfill({status:sessionStatus,json:{error:sessionStatus===401?'Sesi tidak sah. Sila log masuk.':'Perkhidmatan pengesahan tidak tersedia.'}}));
+ await page.route('**/api/auth/login',route=>{posts++;return route.fulfill({status:503,json:{error:'Perkhidmatan pengesahan tidak tersedia.'}})});
+ for(const status of [401,503]){
+  sessionStatus=status;
+  const sessionResponse=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/auth/session');
+  await page.goto('/admin/login');await sessionResponse;
+  await expect(page.getByRole('heading',{name:'Selamat kembali'})).toBeVisible();
+  await expect(page.getByRole('alert')).toHaveCount(0);
+  await expect(page.getByRole('button',{name:'Log masuk →'})).toBeEnabled();
+  await expect(page).toHaveURL(/\/admin\/login$/);
+ }
+ expect(posts).toBe(0);
+ await page.getByLabel('E-mel pentadbir').fill('synthetic@example.test');
+ await page.getByLabel('Kata laluan',{exact:true}).fill(crypto.randomUUID());
+ await page.getByRole('button',{name:'Log masuk →'}).click();
+ await expect(page.getByRole('alert')).toHaveText('Perkhidmatan pengesahan tidak tersedia.');
+ expect(posts).toBe(1);
+ await expect(page.getByRole('button',{name:'Log masuk →'})).toBeEnabled();
+ await expect(page.getByLabel('Kata laluan',{exact:true})).toHaveValue('');
+});
+test('login memaparkan kod rujukan selamat daripada kegagalan backend',async({page})=>{
+ await page.unroute('**/api/auth/session');await page.route('**/api/auth/session',route=>route.fulfill({status:401,json:{error:'Sesi tidak sah.'}}));
+ await page.route('**/api/auth/login',route=>route.fulfill({status:503,json:{error:'Perkhidmatan pengesahan tidak tersedia.',code:'AUTH_LOGIN_RATE_LIMIT'}}));
+ await page.goto('/admin/login');await page.getByLabel('E-mel pentadbir').fill('synthetic@example.test');await page.getByLabel('Kata laluan',{exact:true}).fill(crypto.randomUUID());await page.getByRole('button',{name:'Log masuk →'}).click();await expect(page.getByRole('alert')).toHaveText('Perkhidmatan pengesahan tidak tersedia. (Rujukan: AUTH_LOGIN_RATE_LIMIT)');
+});

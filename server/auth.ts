@@ -43,11 +43,14 @@ async function limitLogin(request:Request,env:AuthEnv,email:string){
  if(results.some((r,i)=>Number((r.results[0] as {attempts:number}).attempts)>[20,5][i]))throw new HttpError(429,'Terlalu banyak percubaan. Cuba semula selepas 15 minit.');
 }
 export async function handleAuth(request:Request,env:AuthEnv,path:string):Promise<Response>{
+ let failureCode='AUTH_REQUEST';
  try{
  if(!env.DB)throw new HttpError(503,'Database belum dikonfigurasi.');
- if(path==='session'&&request.method==='GET'){const s=await getSession(request,env);return json({actor:s.email,csrfToken:s.csrfToken,expiresAt:s.expires_at})}
+ if(path==='session'&&request.method==='GET'){failureCode='AUTH_SESSION_READ';const s=await getSession(request,env);return json({actor:s.email,csrfToken:s.csrfToken,expiresAt:s.expires_at})}
  if(path==='logout'&&request.method==='POST'){
+  failureCode='AUTH_LOGOUT_CHECK';
   const actor=await verifyAdmin(request,env);const s=await getSession(request,env);
+  failureCode='AUTH_LOGOUT_WRITE';
   await env.DB.batch([env.DB.prepare('DELETE FROM admin_sessions WHERE token_hash=?').bind(s.token_hash),await audit(env,actor,'logout',s.user_id)]);
   return json({ok:true},200,{'Set-Cookie':cookie('',0)});
  }
@@ -56,18 +59,23 @@ export async function handleAuth(request:Request,env:AuthEnv,path:string):Promis
  checkWriteOrigin(request);const input=await readJson(request,2048);
  const email=typeof input.email==='string'?input.email.trim().toLowerCase():'';
  if(!/^\S+@\S+\.\S+$/.test(email)||email.length>254||!validPassword(input.password))throw new HttpError(400,'E-mel atau kata laluan tidak sah.');
+ failureCode='AUTH_LOGIN_RATE_LIMIT';
  await limitLogin(request,env,email);
+ failureCode='AUTH_LOGIN_ACCOUNT_READ';
  const user=await env.DB.prepare('SELECT id,email,password_hash FROM admin_users WHERE email=? AND active=1').bind(email).first<{id:string;email:string;password_hash:string}>();
  // Fixed valid dummy verifier equalises work for unknown and disabled accounts.
  const dummy='pbkdf2-sha256$600000$00000000000000000000000000000000$'+ '0'.repeat(64);
+ failureCode='AUTH_LOGIN_PASSWORD_VERIFY';
  const valid=await verifyPassword(input.password,user?.password_hash??dummy);
- if(!valid||!user){await (await audit(env,'anonymous','login_failed','redacted')).run();throw new HttpError(401,'E-mel atau kata laluan tidak sah.')}
+ if(!valid||!user){failureCode='AUTH_LOGIN_FAILURE_AUDIT';await (await audit(env,'anonymous','login_failed','redacted')).run();throw new HttpError(401,'E-mel atau kata laluan tidak sah.')}
+ failureCode='AUTH_LOGIN_SESSION_CREATE';
  const now=Math.floor(Date.now()/1000);const token=randomToken();const tokenHash=await sha256(token);const old=sessionToken(request);
  await env.DB.batch([
   env.DB.prepare('DELETE FROM admin_sessions WHERE expires_at<=? OR last_seen_at<=? OR token_hash=?').bind(now,now-IDLE,old?await sha256(old):''),
   env.DB.prepare('INSERT INTO admin_sessions (token_hash,user_id,created_at,last_seen_at,expires_at) VALUES (?,?,?,?,?)').bind(tokenHash,user.id,now,now,now+LIFETIME),
   await audit(env,user.email,'login',user.id)
  ]);
+ failureCode='AUTH_LOGIN_RESPONSE';
  return json({actor:user.email,csrfToken:await sha256(`csrf:${token}`),expiresAt:now+LIFETIME},200,{'Set-Cookie':cookie(token)});
- }catch(e){if(e instanceof HttpError)return json({error:e.message},e.status,e.status===429?{'Retry-After':'900'}:{});return json({error:'Perkhidmatan pengesahan tidak tersedia.'},503)}
+ }catch(e){if(e instanceof HttpError)return json({error:e.message},e.status,e.status===429?{'Retry-After':'900'}:{});/* Never log the exception, query parameters, request or account data. */console.error(JSON.stringify({event:'admin_auth_failure',code:failureCode}));return json({error:'Perkhidmatan pengesahan tidak tersedia.',code:failureCode},503)}
 }

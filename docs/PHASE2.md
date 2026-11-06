@@ -136,3 +136,24 @@ Baharu: `src/Login.tsx`, `server/password.ts`, `server/http.ts`, `server/bootstr
 Diubah: `server/auth.ts`, `server/auth.test.ts`, `server/api.ts`, `server/api.test.ts`, `functions/admin/[[path]].ts`, `src/Admin.tsx`, `src/main.tsx`, `src/style.css`, `tests/app.spec.ts`, `.dev.vars.example`, `package.json`, `package-lock.json`, `README.md`, `docs/PHASE2.md`.
 
 Tidak diubah: konfigurasi staging `wrangler.jsonc`, migrasi/schema/seed Fasa 2 terdahulu, HTML asal dan lapan data PB asal.
+
+## Diagnosis ralat login 503
+
+Endpoint login ialah `POST /api/auth/login`, bukan `/api/admin/login`. Body `{}` mendapat 400 sebelum D1 atau PBKDF2 digunakan; ia hanya mengesahkan routing/validasi awal. Semakan sesi awal 401/503 tidak memaparkan ralat borang. Mesej `Perkhidmatan pengesahan tidak tersedia` selepas submit datang daripada pengecualian tidak dijangka di backend.
+
+Backend kini menambah kod peringkat yang tetap dalam respons 503 dan log `admin_auth_failure`. Frontend memaparkannya sebagai `Rujukan: AUTH_...`. Log tidak mengandungi exception mentah, SQL, input, e-mel, password, hash, token atau cookie.
+
+| Kod | Operasi yang gagal; bukan kesimpulan punca |
+| --- | --- |
+| `AUTH_LOGIN_RATE_LIMIT` | Hash bucket / operasi D1 `login_rate_limits` |
+| `AUTH_LOGIN_ACCOUNT_READ` | Bacaan `admin_users` termasuk lajur `active` dan `password_hash` |
+| `AUTH_LOGIN_PASSWORD_VERIFY` | Parsing verifier / WebCrypto PBKDF2 |
+| `AUTH_LOGIN_FAILURE_AUDIT` | Penulisan audit percubaan gagal |
+| `AUTH_LOGIN_SESSION_CREATE` | Penjanaan token / batch sesi dan audit login |
+| `AUTH_LOGIN_RESPONSE` | Pembentukan token CSRF respons |
+| `AUTH_SESSION_READ` | Pemeriksaan sesi |
+| `AUTH_LOGOUT_CHECK` / `AUTH_LOGOUT_WRITE` | Pemeriksaan / pembatalan sesi logout |
+
+Kod ini mengenal pasti peringkat, bukan membuktikan jadual hilang atau binding salah. Jangan cipta semula jadual, tukar database atau turunkan work factor berdasarkan andaian. Satu rekod `admin_users` sahaja tidak mengesahkan semua jadual, lajur dan binding deployment.
+
+Ujian router Pages yang dikompilasi membuktikan anonymous login, pemisahan API/SPA, sekatan admin dan login PBKDF2 dalam Worker tempatan. Ujian diagnostik menyuntik kegagalan D1/crypto dan memastikan hanya kod selamat didedahkan. Punca ralat deployment sebenar memerlukan kod rujukan selepas perubahan ini diluluskan untuk Preview, atau bukti Functions yang disanitasi daripada deployment semasa. Perubahan diagnostik ini sendiri tidak membaiki kegagalan login yang belum dikenal pasti.
