@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jadual Pulang Bermalam MRSM Dungun 2026</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+    <!-- 
+        Palette: Energetic & Playful (Professional Adaptation)
+        Primary Blue: #1E40AF
+        Vibrant Orange: #F97316
+        Bright Yellow: #FACC15
+    -->
+</head>
+<body class="bg-gray-50 text-gray-900 antialiased">
+
+    <div class="min-h-screen py-12 px-4 sm:px-6 lg:px-8">
+        <div class="max-w-6xl mx-auto">
+            
+            <!-- Header -->
+            <div class="text-center mb-10">
+                <span class="inline-block px-3 py-1 text-xs font-semibold tracking-wider text-blue-800 uppercase bg-blue-100 rounded-full mb-4">
+                    Maklumat Rasmi Asrama
+                </span>
+                <h1 class="text-3xl md:text-4xl font-extrabold text-blue-900 tracking-tight">
+                    Jadual Pulang Bermalam (PB) 2026 </br>MRSM Dungun, Terengganu.
+                </h1>
+                <p class="mt-3 text-lg text-gray-600 max-w-2xl mx-auto">
+                    Sila rujuk jadual di bawah untuk perancangan pergerakan pelajar.
+                </p>
+            </div>
+
+            <!-- Controls Section -->
+            <div class="bg-white rounded-t-xl shadow-sm border-x border-t border-gray-200 p-4 flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0">
+                <div class="relative flex-1 max-w-md">
+                    <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400">
+                        🔍
+                    </span>
+                    <input type="text" id="tableSearch" placeholder="Cari peristiwa atau bulan..." 
+                        class="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg leading-5 bg-gray-50 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                </div>
+                <div class="flex space-x-2">
+                    <button onclick="filterTable('all')" class="px-4 py-2 text-sm font-medium rounded-md bg-gray-100 text-gray-700 hover:bg-gray-200 active:bg-gray-300 transition">Semua</button>
+                    <button onclick="filterTable('PB Wajib')" class="px-4 py-2 text-sm font-medium rounded-md bg-orange-100 text-orange-700 hover:bg-orange-200 transition">PB Wajib</button>
+                    <button onclick="filterTable('PB Pilihan')" class="px-4 py-2 text-sm font-medium rounded-md bg-yellow-100 text-yellow-800 hover:bg-yellow-200 transition">PB Pilihan</button>
+                </div>
+            </div>
+
+            <!-- Responsive Table Container -->
+            <div class="overflow-hidden shadow-xl ring-1 ring-black ring-opacity-5 rounded-b-xl">
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-300" id="scheduleTable">
+                        <thead class="bg-blue-900">
+                            <tr>
+                                <th scope="col" class="py-4 pl-6 pr-3 text-left text-xs font-bold text-white uppercase tracking-wider">Bulan</th>
+                                <th scope="col" class="px-3 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">Tarikh Keluar (Mula)</th>
+                                <th scope="col" class="px-3 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">Tarikh Masuk (Tamat)</th>
+                                <th scope="col" class="px-3 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">Peristiwa / Cuti</th>
+                                <th scope="col" class="px-3 py-4 text-center text-xs font-bold text-white uppercase tracking-wider">Status PB</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-200 bg-white">
+                            <!-- Row 1 -->
+                            <tr class="hover:bg-blue-50 transition" data-status="PB Wajib">
+                                <td class="whitespace-nowrap py-4 pl-6 pr-3 text-sm font-bold text-gray-900">Februari</td>
+                                <td class="px-3 py-4 text-sm text-gray-600">
+                                    <span class="block font-medium text-gray-900">12 Feb 2026 (Khamis)</span>
+                                    <span class="text-xs text-orange-600">Selepas 2.00 ptg</span>
+                                </td>
+                                <td class="px-3 py-4 text-sm text-gray-600">
+                                    <span class="block font-medium text-gray-900">21 Feb 2026 (Sabtu)</span>
+                                    <span class="text-xs text-blue-600">Sebelum 6.00 ptg</span>
+                                </td>
+                                <td class="px-3 py-4 text-sm text-gray-900 font-medium">Cuti Tahun Baru Cina & Awal Ramadan</td>
+                                <td class="px-3 py-4 text-center">
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-orange-100 text-orange-800 uppercase">Wajib</span>
+                                </td>
+                            </tr>
+                            <!-- Row 2 -->
+                            <tr class="hover:bg-blue-50 transition" data-status="PB Wajib">
+                                <td class="whitespace-nowrap py-4 pl-6 pr-3 text-sm font-bold text-gray-900">Mac</td>
+                                <td class="px-3 py-4 text-sm text-gray-600">
+                                    <span class="block font-medium text-gray-900">17 Mac 2026 (Selasa)</span>
+                                    <span class="text-xs text-orange-600">Selepas 12.00 tgh</span>
+                                </td>
+                                <td class="px-3 py-4 text-sm text-gray-600">
+                                    <span class="block font-medium text-gray-900">28 Mac 2026 (Sabtu)</span>
+                                    <span class="text-xs text-blue-600">Sebelum 6.00 ptg</span>
+                                </td>
+                                <td class="px-3 py-4 text-sm text-gray-900 font-medium">Hari Raya Aidil Fitri & Cuti Semester</td>
+                                <td class="px-3 py-4 text-center">
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-orange-100 text-orange-800 uppercase">Wajib</span>
+                                </td>
+                            </tr>
+                            <!-- Row 3 -->
+                            <tr class="hover:bg-blue-50 transition" data-status="PB Pilihan">
+                                <td class="whitespace-nowrap py-4 pl-6 pr-3 text-sm font-bold text-gray-900">April</td>
+                                <td class="px-3 py-4 text-sm text-gray-600">
+                                    <span class="block font-medium text-gray-900">23 April 2026 (Khamis)</span>
+                                    <span class="text-xs text-orange-600">Selepas 2.30 ptg</span>
+                                </td>
+                                <td class="px-3 py-4 text-sm text-gray-600">
+                                    <span class="block font-medium text-gray-900">26 April 2026 (Ahad)</span>
+                                    <span class="text-xs text-blue-600">Sebelum 6.00 ptg</span>
+                                </td>
+                                <td class="px-3 py-4 text-sm text-gray-900 font-medium">Hari Keputeraan Sultan Terengganu</td>
+                                <td class="px-3 py-4 text-center">
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-yellow-100 text-yellow-800 uppercase">Pilihan</span>
+                                </td>
+                            </tr>
+                            <!-- Row 4 -->
+                            <tr class="hover:bg-blue-50 transition" data-status="PB Wajib">
+                                <td class="whitespace-nowrap py-4 pl-6 pr-3 text-sm font-bold text-gray-900">Mei</td>
+                                <td class="px-3 py-4 text-sm text-gray-600">
+                                    <span class="block font-medium text-gray-900">21 Mei 2026 (Khamis)</span>
+                                    <span class="text-xs text-orange-600">Selepas 2.30 ptg</span>
+                                </td>
+                                <td class="px-3 py-4 text-sm text-gray-600">
+                                    <span class="block font-medium text-gray-900">6 Jun 2026 (Sabtu)</span>
+                                    <span class="text-xs text-blue-600">Sebelum 6.00 ptg</span>
+                                </td>
+                                <td class="px-3 py-4 text-sm text-gray-900 font-medium">Cuti Semester & Hari Raya Aidil Adha</td>
+                                <td class="px-3 py-4 text-center">
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-orange-100 text-orange-800 uppercase">Wajib</span>
+                                </td>
+                            </tr>
+                            <!-- Row 5 -->
+                            <tr class="hover:bg-blue-50 transition" data-status="PB Pilihan">
+                                <td class="whitespace-nowrap py-4 pl-6 pr-3 text-sm font-bold text-gray-900">Julai</td>
+                                <td class="px-3 py-4 text-sm text-gray-600">
+                                    <span class="block font-medium text-gray-900">30 Julai 2026 (Khamis)</span>
+                                    <span class="text-xs text-orange-600">Selepas 2.30 ptg</span>
+                                </td>
+                                <td class="px-3 py-4 text-sm text-gray-600">
+                                    <span class="block font-medium text-gray-900">1 Ogos 2026 (Sabtu)</span>
+                                    <span class="text-xs text-blue-600">Sebelum 6.00 ptg</span>
+                                </td>
+                                <td class="px-3 py-4 text-sm text-gray-900 font-medium">Cuti Hujung Minggu</td>
+                                <td class="px-3 py-4 text-center">
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-yellow-100 text-yellow-800 uppercase">Pilihan</span>
+                                </td>
+                            </tr>
+                            <!-- Row 6 -->
+                            <tr class="hover:bg-blue-50 transition" data-status="PB Wajib">
+                                <td class="whitespace-nowrap py-4 pl-6 pr-3 text-sm font-bold text-gray-900">Ogos</td>
+                                <td class="px-3 py-4 text-sm text-gray-600">
+                                    <span class="block font-medium text-gray-900">27 Ogos 2026 (Khamis)</span>
+                                    <span class="text-xs text-orange-600">Selepas 2.30 ptg</span>
+                                </td>
+                                <td class="px-3 py-4 text-sm text-gray-600">
+                                    <span class="block font-medium text-gray-900">5 Sept 2026 (Sabtu)</span>
+                                    <span class="text-xs text-blue-600">Sebelum 6.00 ptg</span>
+                                </td>
+                                <td class="px-3 py-4 text-sm text-gray-900 font-medium">Hari Kebangsaan & Cuti Semester</td>
+                                <td class="px-3 py-4 text-center">
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-orange-100 text-orange-800 uppercase">Wajib</span>
+                                </td>
+                            </tr>
+                            <!-- Row 7 -->
+                            <tr class="hover:bg-blue-50 transition" data-status="PB Pilihan">
+                                <td class="whitespace-nowrap py-4 pl-6 pr-3 text-sm font-bold text-gray-900">Oktober</td>
+                                <td class="px-3 py-4 text-sm text-gray-600">
+                                    <span class="block font-medium text-gray-900">29 Okt 2026 (Khamis)</span>
+                                    <span class="text-xs text-orange-600">Selepas 2.30 ptg</span>
+                                </td>
+                                <td class="px-3 py-4 text-sm text-gray-600">
+                                    <span class="block font-medium text-gray-900">31 Okt 2026 (Sabtu)</span>
+                                    <span class="text-xs text-blue-600">Sebelum 6.00 ptg</span>
+                                </td>
+                                <td class="px-3 py-4 text-sm text-gray-900 font-medium">Cuti Hujung Minggu</td>
+                                <td class="px-3 py-4 text-center">
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-yellow-100 text-yellow-800 uppercase">Pilihan</span>
+                                </td>
+                            </tr>
+                            <!-- Row 8 -->
+                            <tr class="hover:bg-blue-50 transition" data-status="PB Wajib">
+                                <td class="whitespace-nowrap py-4 pl-6 pr-3 text-sm font-bold text-gray-900">Disember</td>
+                                <td class="px-3 py-4 text-sm text-gray-600">
+                                    <span class="block font-medium text-gray-900">3 Dis 2026 (Khamis)</span>
+                                    <span class="text-xs text-orange-600">Selepas 1.30 ptg</span>
+                                </td>
+                                <td class="px-3 py-4 text-sm text-gray-600">
+                                    <span class="block font-medium text-gray-900">2 Jan 2027 (Sabtu)</span>
+                                    <span class="text-xs text-blue-600">Sebelum 6.00 ptg</span>
+                                </td>
+                                <td class="px-3 py-4 text-sm text-gray-900 font-medium">Cuti Akhir Tahun</td>
+                                <td class="px-3 py-4 text-center">
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-orange-100 text-orange-800 uppercase">Wajib</span>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Footer Notes -->
+            <div class="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-5">
+                    <h5 class="text-blue-900 font-bold flex items-center mb-2">
+                        <span class="mr-2">💡</span> Info PB Wajib
+                    </h5>
+                    <p class="text-blue-800 text-sm">
+                        Semua pelajar dikehendaki mengosongkan asrama. Pastikan semua suis elektrik dimatikan dan asrama berada dalam keadaan bersih.
+                    </p>
+                </div>
+                <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-5">
+                    <h5 class="text-yellow-900 font-bold flex items-center mb-2">
+                        <span class="mr-2">🏠</span> Info PB Pilihan
+                    </h5>
+                    <p class="text-yellow-800 text-sm">
+                        Pelajar dibenarkan pulang atau kekal di asrama mengikut keperluan masing-masing. Pelajar yang kekal di asrama tertakluk kepada peraturan maktab.
+                    </p>
+                </div>
+            </div>
+            
+            <p class="mt-10 text-center text-gray-400 text-xs">
+                © 2026 MRSM Dungun, Terengganu. Dokumen ini adalah untuk rujukan pelajar dan penjaga.
+            </p>
+        </div>
+    </div>
+
+    <script>
+        // Search functionality
+        document.getElementById('tableSearch').addEventListener('keyup', function() {
+            let filter = this.value.toUpperCase();
+            let rows = document.querySelector("#scheduleTable tbody").rows;
+
+            for (let i = 0; i < rows.length; i++) {
+                let text = rows[i].textContent.toUpperCase();
+                rows[i].style.display = text.includes(filter) ? "" : "none";
+            }
+        });
+
+        // Filter by Status
+        function filterTable(status) {
+            let rows = document.querySelector("#scheduleTable tbody").rows;
+            for (let i = 0; i < rows.length; i++) {
+                if (status === 'all') {
+                    rows[i].style.display = "";
+                } else {
+                    rows[i].style.display = (rows[i].getAttribute('data-status') === status) ? "" : "none";
+                }
+            }
+        }
+    </script>
+</body>
+</html>
