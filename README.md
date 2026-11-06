@@ -34,3 +34,9 @@ npm run test:e2e
 Vitest menguji pemindahan peristiwa daripada HTML asal, gabungan penapis, tarikh rentas tahun, waktu Malaysia dan sempadan countdown. Playwright menguji aliran dashboard/jadual/kalendar, pengumuman demo, ketiadaan permintaan luar, keadaan jadual tamat, responsif mudah alih dan cetakan jadual lengkap.
 
 Tiada deployment atau merge production diperlukan untuk menjalankan aplikasi ini.
+
+## Fasa 2 — Pentadbir dan D1
+
+Laluan `/admin` dan API Cloudflare Pages Functions kini disediakan, dengan Cloudflare Access JWT, allowlist pentadbir, pengurusan jadual/pengumuman serta audit perubahan. Integrasi API awam dilumpuhkan secara lalai; data asal kekal digunakan sehingga D1 disahkan dan diaktifkan secara manual. Tiada Supabase/Firebase.
+
+Lihat [panduan lengkap Fasa 2](docs/PHASE2.md) untuk migrasi tempatan, binding staging, konfigurasi Access, API, keputusan ujian dan langkah pengaktifan manual. Bahagian skop Fasa 1 di atas menerangkan keadaan sebelum integrasi Fasa 2.

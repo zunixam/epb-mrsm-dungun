@@ -1,5 +1,5 @@
 export type PBStatus = "PB Wajib" | "PB Pilihan";
-export interface PBEvent { id: number; month: string; start: string; end: string; departure: string; returnTime: string; title: string; status: PBStatus }
+export interface PBEvent { id: number | string; departureTime?: string; month: string; start: string; end: string; departure: string; returnTime: string; title: string; status: PBStatus }
 // Transcribed from the preserved original: index (7).html.
 export const events: PBEvent[] = [
   {

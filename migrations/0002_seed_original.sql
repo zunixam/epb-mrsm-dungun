@@ -1,0 +1,10 @@
+-- Repeatable seed: stable IDs; existing records are never overwritten.
+-- Demo announcements are deliberately not seeded.
+INSERT INTO pb_schedules (id,title,start_date,end_date,departure_time,return_time,category,status) VALUES ('original-pb-01','Cuti Tahun Baru Cina & Awal Ramadan','2026-02-12','2026-02-21','14:00','18:00','PB Wajib','published') ON CONFLICT(id) DO NOTHING;
+INSERT INTO pb_schedules (id,title,start_date,end_date,departure_time,return_time,category,status) VALUES ('original-pb-02','Hari Raya Aidil Fitri & Cuti Semester','2026-03-17','2026-03-28','12:00','18:00','PB Wajib','published') ON CONFLICT(id) DO NOTHING;
+INSERT INTO pb_schedules (id,title,start_date,end_date,departure_time,return_time,category,status) VALUES ('original-pb-03','Hari Keputeraan Sultan Terengganu','2026-04-23','2026-04-26','14:30','18:00','PB Pilihan','published') ON CONFLICT(id) DO NOTHING;
+INSERT INTO pb_schedules (id,title,start_date,end_date,departure_time,return_time,category,status) VALUES ('original-pb-04','Cuti Semester & Hari Raya Aidil Adha','2026-05-21','2026-06-06','14:30','18:00','PB Wajib','published') ON CONFLICT(id) DO NOTHING;
+INSERT INTO pb_schedules (id,title,start_date,end_date,departure_time,return_time,category,status) VALUES ('original-pb-05','Cuti Hujung Minggu','2026-07-30','2026-08-01','14:30','18:00','PB Pilihan','published') ON CONFLICT(id) DO NOTHING;
+INSERT INTO pb_schedules (id,title,start_date,end_date,departure_time,return_time,category,status) VALUES ('original-pb-06','Hari Kebangsaan & Cuti Semester','2026-08-27','2026-09-05','14:30','18:00','PB Wajib','published') ON CONFLICT(id) DO NOTHING;
+INSERT INTO pb_schedules (id,title,start_date,end_date,departure_time,return_time,category,status) VALUES ('original-pb-07','Cuti Hujung Minggu','2026-10-29','2026-10-31','14:30','18:00','PB Pilihan','published') ON CONFLICT(id) DO NOTHING;
+INSERT INTO pb_schedules (id,title,start_date,end_date,departure_time,return_time,category,status) VALUES ('original-pb-08','Cuti Akhir Tahun','2026-12-03','2027-01-02','13:30','18:00','PB Wajib','published') ON CONFLICT(id) DO NOTHING;
